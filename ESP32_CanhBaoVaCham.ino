@@ -74,7 +74,8 @@ void loop() {
       display.clear();
       ShowSpeed();
       display.display();
-      if (velocity > 5) digitalWrite(relayPin, HIGH);
+      //if (velocity > 5) 
+        digitalWrite(relayPin, HIGH);
       vehicleDetected = false;                                     // Car has now clocked in at 1 & second sensor and we can reset the detection boolean. 
       resetSensor2 = false;                                    // 2 sensor is now "used" and needs to be reset by a 0 measurement indicating that the current car has left the field. 
     } else if ((distance > 200 )||(distance == 0)) {                               // This handles the reset.
