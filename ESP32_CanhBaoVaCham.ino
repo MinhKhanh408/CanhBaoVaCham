@@ -1,5 +1,5 @@
-#include <Wire.h>  // Only needed for Arduino 1.6.5 and earlier
-#include "SSD1306.h" // alias for `#include "SSD1306Wire.h"`
+#include <Wire.h> 
+#include "SSD1306.h"
 
 //Define variables
 unsigned long startTime = 0;
@@ -9,7 +9,9 @@ bool vehicleDetected = false;
 bool IRDetected = false;
 bool resetSensor1 = true;
 bool resetSensor2 = true;
-int velocity = 0; 
+int velocity = 0;
+int maxDistance = 70; 
+
 SSD1306  display(0x3c, 21, 22);
 
 //Define sensor pinout:
@@ -18,8 +20,9 @@ const int echoPin1 = 17;
 const int sensorPin2 = 18;
 const int echoPin2 = 19;
 
-const int relayPin = 34;
+const int relayPin = 23;
 const int sensorIR = 32;
+
 void setup() {
   
   Serial.begin(115200);
@@ -44,49 +47,73 @@ void setup() {
 }
 
 void ShowSpeed() {
+    display.clear();
     display.setTextAlignment(TEXT_ALIGN_LEFT);
     display.setFont(ArialMT_Plain_24);
     display.drawString(0, 26, String(velocity) + " Km/h");
+    display.display();
+}
+
+void ShowDanger() {
+    display.clear();
+    display.setTextAlignment(TEXT_ALIGN_LEFT);
+    display.setFont(ArialMT_Plain_24);
+    display.drawString(0, 26, "Chú ý va chạm");
+    display.display();
+    delay(2000);
 }
 
 void loop() {
   IRDetected = (digitalRead(sensorIR) == HIGH);
-  if (!vehicleDetected) {                                          // Start reading sensor 1 if there is no car detected              
-    readSensor(sensorPin1, echoPin1);                          // Call the readSensorfunction and read sensor 1 
-    //Serial.print("Sensor 1:");
-    //Serial.println(distance);
-    if (distance < 200 && resetSensor1) {                      // Check if measurement fits with passing car (min, maks distance and if sensor is reset)
+  if (IRDetected) Serial.println("IR Detected");
+  if (!vehicleDetected) {                                          
+    readSensor(sensorPin1, echoPin1);                          
+    Serial.print("Sensor 1:");
+    Serial.println(distance);
+    if (distance < maxDistance && resetSensor1) {                      
       startTime = millis();                                    // Start the timer for the passing car. 
       vehicleDetected = true;                                      // Change the boolean for car detection to true. 
       resetSensor1 = false;                                    // The sensor is now "used" and needs to be reset by a 0 measurement indicating that the current car has left the field. 
-    } else if ((distance > 200)||(distance == 0)) {                                // If the sensor returns 0 (pulseIn timout), the sensor should be reset
+    } else if ((distance > maxDistance)||(distance == 0)) {                                // If the sensor returns 0 (pulseIn timout), the sensor should be reset
       resetSensor1 = true;
     }
   }
   
+  if (vehicleDetected && IRDetected) {
+    digitalWrite(relayPin, HIGH);
+    Serial.println("On");
+    ShowDanger();
+  } else {
+    digitalWrite(relayPin, LOW);
+    Serial.println("Off");
+  }
+
   if (vehicleDetected || !resetSensor2) {                          // If car is deteced on sensor 1, detect car on sensor 2.
     readSensor(sensorPin2, echoPin2);                          // Call the readSensorfunction and read sensor 1 
-    //Serial.print("Sensor 2:");
-    //Serial.println(distance);
-    if (distance < 200 && resetSensor2) {                      // Check if measurement fits with passing car (min, maks distance and if sensor is reset)
+    Serial.print("Sensor 2:");
+    Serial.println(distance);
+    if (distance < maxDistance && resetSensor2) {                      // Check if measurement fits with passing car (min, maks distance and if sensor is reset)
       endTime = millis();                                      // Start the timer for the passing car.
       velocity = round(1600/(endTime-startTime));
-      display.clear();
+      Serial.print("Velocity:");
+      Serial.println(velocity);
       ShowSpeed();
-      display.display();
-      //if (velocity > 5) 
+      if (velocity > 5) {
         digitalWrite(relayPin, HIGH);
+        Serial.println("On");
+        ShowDanger();
+      }
       vehicleDetected = false;                                     // Car has now clocked in at 1 & second sensor and we can reset the detection boolean. 
       resetSensor2 = false;                                    // 2 sensor is now "used" and needs to be reset by a 0 measurement indicating that the current car has left the field. 
-    } else if ((distance > 200 )||(distance == 0)) {                               // This handles the reset.
+    } else if ((distance > maxDistance )||(distance == 0)) {                               // This handles the reset.
       resetSensor2 = true;
     }
     
-    if (vehicleDetected && IRDetected) digitalWrite(relayPin, HIGH);
-
-    if (millis() - startTime > 5000) {                         // If sensor 1 detects a car that somehow never triggers the second sensor within 2 seconds - restart. 
+    if (millis() - startTime > 2000) {                         // If sensor 1 detects a car that somehow never triggers the second sensor within 2 seconds - restart. 
       vehicleDetected = false;
       digitalWrite(relayPin, LOW);
+      Serial.println("Off");
+      display.clear();
     }     
   }
 }
