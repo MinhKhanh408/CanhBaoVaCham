@@ -10,7 +10,7 @@ bool IRDetected = false;
 bool resetSensor1 = true;
 bool resetSensor2 = true;
 int velocity = 0;
-int maxDistance = 70; 
+int maxDistance = 40; 
 
 SSD1306  display(0x3c, 21, 22);
 
@@ -46,73 +46,66 @@ void setup() {
   
 }
 
-void ShowSpeed() {
+void Show() {
     display.clear();
     display.setTextAlignment(TEXT_ALIGN_LEFT);
-    display.setFont(ArialMT_Plain_24);
-    display.drawString(0, 26, String(velocity) + " Km/h");
+    display.setFont(ArialMT_Plain_16);
+    display.drawString(0, 5, String(velocity) + " Km/h");
+    if (IRDetected)
+      display.drawString(0, 20, "Lối 2: Có   ");
+    else
+      display.drawString(0, 20, "Lối 2: Không");
+  if (velocity > 30) display.drawString(0, 40, "Chú ý");
     display.display();
 }
 
-void ShowDanger() {
-    display.clear();
-    display.setTextAlignment(TEXT_ALIGN_LEFT);
-    display.setFont(ArialMT_Plain_24);
-    display.drawString(0, 26, "Chú ý va chạm");
-    display.display();
-    delay(2000);
-}
 
 void loop() {
   IRDetected = (digitalRead(sensorIR) == HIGH);
-  if (IRDetected) Serial.println("IR Detected");
-  if (!vehicleDetected) {                                          
+  if (IRDetected) 
+    Serial.println("IR Detected");
+  else
+    Serial.println("No IR");
+  
+  Show();
+
+  if (!vehicleDetected) {                                      
     readSensor(sensorPin1, echoPin1);                          
-    Serial.print("Sensor 1:");
-    Serial.println(distance);
-    if (distance < maxDistance && resetSensor1) {                      
+    
+    if ((distance > 0 ) && (distance < maxDistance)) { 
+      Serial.print("Sensor 1:");
+      Serial.println(distance);                     
       startTime = millis();                                    // Start the timer for the passing car. 
       vehicleDetected = true;                                      // Change the boolean for car detection to true. 
       resetSensor1 = false;                                    // The sensor is now "used" and needs to be reset by a 0 measurement indicating that the current car has left the field. 
-    } else if ((distance > maxDistance)||(distance == 0)) {                                // If the sensor returns 0 (pulseIn timout), the sensor should be reset
-      resetSensor1 = true;
     }
   }
-  
-  if (vehicleDetected && IRDetected) {
-    digitalWrite(relayPin, HIGH);
-    Serial.println("On");
-    ShowDanger();
-  } else {
-    digitalWrite(relayPin, LOW);
-    Serial.println("Off");
-  }
 
-  if (vehicleDetected || !resetSensor2) {                          // If car is deteced on sensor 1, detect car on sensor 2.
+  if (vehicleDetected) {                          // If car is deteced on sensor 1, detect car on sensor 2.
     readSensor(sensorPin2, echoPin2);                          // Call the readSensorfunction and read sensor 1 
-    Serial.print("Sensor 2:");
-    Serial.println(distance);
-    if (distance < maxDistance && resetSensor2) {                      // Check if measurement fits with passing car (min, maks distance and if sensor is reset)
+    
+    if ((distance > 0)&&(distance < maxDistance)) {    
+      Serial.print("Sensor 2:");
+      Serial.println(distance);                  // Check if measurement fits with passing car (min, maks distance and if sensor is reset)
       endTime = millis();                                      // Start the timer for the passing car.
-      velocity = round(1600/(endTime-startTime));
-      Serial.print("Velocity:");
+      velocity = round(3.6*130/(endTime-startTime));
+      Serial.print("Velocity: ");
       Serial.println(velocity);
-      ShowSpeed();
-      if (velocity > 5) {
+      Show();
+      if (velocity > 30) {
         digitalWrite(relayPin, HIGH);
         Serial.println("On");
-        ShowDanger();
+        Show();
+        delay(2000);
       }
       vehicleDetected = false;                                     // Car has now clocked in at 1 & second sensor and we can reset the detection boolean. 
       resetSensor2 = false;                                    // 2 sensor is now "used" and needs to be reset by a 0 measurement indicating that the current car has left the field. 
-    } else if ((distance > maxDistance )||(distance == 0)) {                               // This handles the reset.
-      resetSensor2 = true;
     }
     
-    if (millis() - startTime > 2000) {                         // If sensor 1 detects a car that somehow never triggers the second sensor within 2 seconds - restart. 
+    if (millis() - startTime > 600) {                         // If sensor 1 detects a car that somehow never triggers the second sensor within 2 seconds - restart. 
       vehicleDetected = false;
       digitalWrite(relayPin, LOW);
-      Serial.println("Off");
+      Serial.println("Too slow");
       display.clear();
     }     
   }
