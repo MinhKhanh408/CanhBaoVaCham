@@ -57,6 +57,8 @@ void Show() {
       display.drawString(0, 20, "Lối 2: Không");
   if (velocity > 30) display.drawString(0, 40, "Chú ý");
     display.display();
+  if (vehicleDetected && IRDetected) display.drawString(0, 40, "Chú ý");
+    display.display();
 }
 
 
@@ -68,6 +70,12 @@ void loop() {
     Serial.println("No IR");
   
   Show();
+
+  if (vehicleDetected && IRDetected){
+    Serial.println("Both radar 1 and IR Sensor detected");
+    Show();
+    delay(2000);
+  }
 
   if (!vehicleDetected) {                                      
     readSensor(sensorPin1, echoPin1);                          
